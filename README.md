@@ -33,8 +33,13 @@ No extra Python packages are needed — the script uses only the standard librar
 ## What the script does
 
 `codex-pair.py` runs the whole setup and prints `[ OK ]` / `[WARN]` / `[FAIL]`
-for each step: it checks your `codex` login, starts the remote-control daemon,
-enrolls the host, and prints a pairing code for the phone.
+for each step:
+
+1. Checks the `codex` CLI and your login.
+2. Confirms it can reach `chatgpt.com`.
+3. Starts the remote-control daemon.
+4. Enrolls the host and mints a pairing code.
+5. Waits for the phone to pair, then offers to enable autostart.
 
 If a step fails, it stops and shows the exact command to fix it — resolve it and
 run the script again.
