@@ -1,39 +1,63 @@
 # Codex Remote Control
 
-Set up [Codex](https://chatgpt.com/codex) remote control on a Linux machine and
-pair it with the Codex phone app — in one command.
-
-Run the helper on the computer you want to control from your phone. It checks
-that everything is ready, starts the remote-control service, and prints a
-pairing code to type into the app.
-
-## Requirements
-
-- Linux with **Python 3**
-- The **`codex` CLI** installed and on your `PATH`
-  ```bash
-  curl -fsSL https://chatgpt.com/codex/install.sh | sh
-  ```
-- A logged-in Codex account (`codex login`)
-- Internet access to `chatgpt.com` (including WebSocket connections)
-
-No extra Python packages are needed — the script uses only the standard library.
+Pair a Linux machine with the **ChatGPT Codex app** so you can drive it remotely
+from your phone — set up in one command.
 
 ## Quick start
+
+Run this on the Linux machine you want to control:
 
 ```bash
 python3 codex-pair.py
 ```
 
-You'll see a checklist, and then a pairing code:
+It prints a pairing code:
 
 ```text
 PAIRING CODE:  XXXX-XXXX
 ```
 
-Open the Codex app on your phone, choose **pair a device**, and enter the code.
-By default the script waits until the phone pairs, then offers to start Codex
-remote control automatically on boot.
+Open the Codex app, choose **pair a device**, and enter the code. That's it.
+
+## Requirements
+
+- Linux with **Python 3**
+- The **`codex` CLI** installed and logged in (`codex login`)
+  ```bash
+  curl -fsSL https://chatgpt.com/codex/install.sh | sh
+  ```
+- Internet access to `chatgpt.com` (including WebSocket connections)
+
+No extra Python packages are needed — the script uses only the standard library.
+
+## What the script does
+
+`codex-pair.py` walks the whole host-side setup and reports `[ OK ]` / `[WARN]` /
+`[FAIL]` for each step, so you can see exactly where things stand. In order, it:
+
+1. **Checks the `codex` CLI** is installed and on your `PATH`.
+2. **Reads your login** from `auth.json` and verifies the token is still valid
+   server-side (a real API call, not just a local check).
+3. **Checks connectivity** — runs `codex doctor` to confirm the WebSocket needed
+   for remote control can reach `chatgpt.com`.
+4. **Verifies the standalone install** that the remote-control daemon depends on.
+5. **Starts the remote-control daemon** and confirms it reports `connected`.
+6. **Enrolls this host** with ChatGPT and mints a **manual pairing code**.
+7. **Waits for the phone to pair** (by default), then offers to enable autostart.
+
+If a required step fails, the script stops and prints the exact command to fix
+it — resolve it and run the script again.
+
+### Start on boot
+
+After a successful pair, the script asks whether to keep the machine
+controllable across reboots (default is **no**, and it asks before installing
+anything). If you agree, it picks the right mechanism automatically:
+
+- **systemd** — installs a user service, enables it, and turns on linger so it
+  starts at boot before you log in.
+- **cron** — falls back to an `@reboot` job when no systemd user service is
+  available.
 
 ## Options
 
@@ -43,24 +67,14 @@ python3 codex-pair.py --wait 120       # wait up to 120 seconds for pairing
 CODEX_HOME=/custom/path python3 codex-pair.py
 ```
 
-| Option            | What it does                                                        |
-| ----------------- | ------------------------------------------------------------------- |
-| `--no-wait`       | Print the pairing code and exit instead of waiting for the phone.   |
-| `--wait <seconds>`| Wait up to N seconds for pairing (default: until the code expires). |
-| `CODEX_HOME`      | Point at a non-default Codex configuration directory.               |
+| Option             | What it does                                                        |
+| ------------------ | ------------------------------------------------------------------- |
+| `--no-wait`        | Print the pairing code and exit instead of waiting for the phone.   |
+| `--wait <seconds>` | Wait up to N seconds for pairing (default: until the code expires). |
+| `CODEX_HOME`       | Point at a non-default Codex configuration directory.               |
 
-## Start on boot
-
-After pairing, the script can keep your machine controllable across reboots. It
-detects how your system starts background services and sets up the best option
-automatically:
-
-- **systemd** — installs a user service and enables it (with linger so it starts
-  at boot, before you log in).
-- **cron** — falls back to an `@reboot` job when a systemd user service isn't
-  available.
-
-You'll be asked before anything is installed.
+> Note: autostart is only offered when the script actually waits for and
+> completes a pair, so it is skipped with `--no-wait`.
 
 ## Exit codes
 
