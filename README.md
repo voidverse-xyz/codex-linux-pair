@@ -48,7 +48,9 @@ run the script again.
 
 After a successful pair, the script asks whether to keep the machine
 controllable across reboots (default is **no**, and it asks before installing
-anything). If you agree, it picks the right mechanism automatically:
+anything). Pass `--install-startup` to install it automatically after pairing
+instead of prompting. If startup is enabled, it picks the right mechanism
+automatically:
 
 - **systemd** — installs a user service, enables it, and turns on linger so it
   starts at boot before you log in.
@@ -60,17 +62,21 @@ anything). If you agree, it picks the right mechanism automatically:
 ```bash
 python3 codex-pair.py --no-wait        # print the code and exit
 python3 codex-pair.py --wait 120       # wait up to 120 seconds for pairing
+python3 codex-pair.py --install-startup # install startup automatically after pairing
 CODEX_HOME=/custom/path python3 codex-pair.py
 ```
 
-| Option             | What it does                                                        |
-| ------------------ | ------------------------------------------------------------------- |
-| `--no-wait`        | Print the pairing code and exit instead of waiting for the phone.   |
-| `--wait <seconds>` | Wait up to N seconds for pairing (default: until the code expires). |
-| `CODEX_HOME`       | Point at a non-default Codex configuration directory.               |
+| Option              | What it does                                                         |
+| ------------------- | -------------------------------------------------------------------- |
+| `--no-wait`         | Print the pairing code and exit instead of waiting for the phone.    |
+| `--wait <seconds>`  | Wait up to N seconds for pairing (default: until the code expires).  |
+| `--install-startup` | Enable remote-control startup automatically after successful pairing. |
+| `--autostart`       | Alias for `--install-startup`.                                       |
+| `CODEX_HOME`        | Point at a non-default Codex configuration directory.                |
 
 > Note: autostart is only offered when the script actually waits for and
-> completes a pair, so it is skipped with `--no-wait`.
+> completes a pair, so it is skipped with `--no-wait`, even when
+> `--install-startup` is set.
 
 ## Exit codes
 

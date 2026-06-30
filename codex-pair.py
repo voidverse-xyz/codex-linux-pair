@@ -11,6 +11,7 @@ Pure standard library — works on any Linux VM that has python3 and the Codex C
   python3 codex-rc-up.py            # checklist, print code, then wait for the phone to pair
   python3 codex-rc-up.py --no-wait  # just print the code and exit, don't wait
   python3 codex-rc-up.py --wait 120 # cap the wait at 120s (default: until the code expires)
+  python3 codex-rc-up.py --install-startup # install startup automatically after pairing
   CODEX_HOME=/custom python3 codex-rc-up.py
 
 Exit 0 if paired (or --no-wait and a code was minted); 1 if a check failed or
@@ -296,12 +297,22 @@ def maybe_enable_autostart():
         enable_autostart()
 
 
+def handle_autostart(auto_enable):
+    if auto_enable:
+        enable_autostart()
+    else:
+        maybe_enable_autostart()
+
+
 def main():
     ap = argparse.ArgumentParser(description="Codex remote-control setup + checklist")
     ap.add_argument("--no-wait", action="store_true",
                     help="just print the code and exit; do not wait for the phone to pair")
     ap.add_argument("--wait", type=int, default=None,
                     help="seconds to wait for pairing (default: until the code expires)")
+    ap.add_argument("--install-startup", "--autostart", dest="install_startup",
+                    action="store_true",
+                    help="install Codex remote-control startup automatically after pairing")
     args = ap.parse_args()
 
     print(col("Codex remote-control checklist", "1"))
@@ -464,7 +475,7 @@ def main():
                       bearer=server_token, account=account)
         if isinstance(sb, dict) and sb.get("claimed") is True:
             print(col("\n✅ Paired! The phone is now linked to this host.", "1;32"))
-            maybe_enable_autostart()
+            handle_autostart(args.install_startup)
             return finish(manual)
         last = sb
         if time.time() >= next_beat:
