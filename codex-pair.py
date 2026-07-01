@@ -133,12 +133,13 @@ def http(method, path, body=None, bearer=None, account=None, timeout=25):
         headers["chatgpt-account-id"] = account
     req = urllib.request.Request(BASE + path, data=data, method=method, headers=headers)
     try:
-        resp = urllib.request.urlopen(req, timeout=timeout)
-        raw = resp.read().decode("utf-8", "replace")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            status = resp.status
+            raw = resp.read().decode("utf-8", "replace")
         try:
-            return resp.status, json.loads(raw)
+            return status, json.loads(raw)
         except Exception:
-            return resp.status, raw
+            return status, raw
     except urllib.error.HTTPError as e:
         raw = e.read().decode("utf-8", "replace")
         try:
@@ -186,7 +187,13 @@ def prompt_yes_no(question):
         print("Please answer yes or no.")
 
 
+def systemd_quote(value):
+    """Quote a value for a systemd unit file so spaces and quotes survive."""
+    return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def systemd_unit(codex_bin):
+    codex_bin = systemd_quote(codex_bin)
     return f"""[Unit]
 Description=Codex remote-control daemon
 After=network-online.target
@@ -195,7 +202,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-Environment=CODEX_HOME={CODEX_HOME}
+Environment={systemd_quote(f"CODEX_HOME={CODEX_HOME}")}
 ExecStart={codex_bin} remote-control start
 ExecStop={codex_bin} remote-control stop
 
@@ -303,13 +310,20 @@ def enable_cron_autostart(codex_bin, provider_detail):
 
     report("INFO", provider_detail)
     CODEX_HOME.mkdir(parents=True, exist_ok=True)
-    rc, out = run_cmd(["crontab", "-l"], timeout=10)
-    if rc == 0:
-        current = out.splitlines()
-    elif "no crontab" in out.lower():
+    # Keep stdout and stderr separate: stdout is re-installed as the new
+    # crontab, so a stray warning on stderr must not leak into it.
+    try:
+        p = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=10)
+    except subprocess.TimeoutExpired:
+        report("FAIL", "could not read current crontab", "(timed out)")
+        return
+    if p.returncode == 0:
+        current = p.stdout.splitlines()
+    elif "no crontab" in (p.stdout + p.stderr).lower():
         current = []
     else:
-        report("FAIL", "could not read current crontab", cmd_error(out, rc))
+        report("FAIL", "could not read current crontab",
+               cmd_error(p.stdout + p.stderr, p.returncode))
         return
 
     entry = cron_entry(codex_bin)
@@ -457,12 +471,14 @@ def resolve_installation_id():
         install_id = ""
     if not install_id:
         install_id = str(uuid.uuid4())
+        report("INFO", "no installation_id found; generated one")
         try:
             INSTALL_ID_FILE.parent.mkdir(parents=True, exist_ok=True)
             INSTALL_ID_FILE.write_text(install_id)
-        except Exception:
-            pass
-        report("INFO", "no installation_id found; generated one")
+        except Exception as e:
+            report("WARN", "could not persist installation_id",
+                   f"{e}\nEach run will enroll this host as a new server until "
+                   f"{INSTALL_ID_FILE} is writable.")
     report("OK", "installation id resolved")
     return install_id
 
